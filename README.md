@@ -57,7 +57,6 @@ rr (4,) ────────────────────────
 | 19 | Logits Dense | (None,5) | - | glorot_uniform, 无正则, temperature=1.0 时直通 |
 | 20 | Softmax | (None,5) | - | N / S / V / F / Q |
 
-> 与 DMMF-Net 图 5 / 表 2 的对应关系：FT-CNN 只有“卷积块 + 池化 + 全连接”三段，无 `ResBlock`、`CA Module`、`Multi-Head Attention`、`LSTM`；`MaxPool/AvgPool ConvBlock` 在 FT-CNN 中是单层 Conv（非多层堆叠），细节见上表层 3–13。
 
 ## Setup
 
