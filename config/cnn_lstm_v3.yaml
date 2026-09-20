@@ -1,0 +1,132 @@
+# CNN+LSTM v3: v2 + dedicated center-beat RR/prematurity branch
+seed: 42
+
+paths:
+  data_root: "C:/Users/安/Desktop/project/项目/项目/autodl-tmp/数据集/mit_bih_dataset"
+  cache_dir: "cache_ctx5_svdb"
+  artifact_dir: "artifacts/cnn_lstm_v3"
+
+splits:
+  train:
+    - 101
+    - 106
+    - 108
+    - 109
+    - 112
+    - 114
+    - 115
+    - 116
+    - 118
+    - 119
+    - 122
+    - 124
+    - 201
+    - 203
+    - 205
+    - 207
+    - 208
+    - 209
+    - 215
+    - 220
+    - 223
+    - 230
+  test:
+    - 100
+    - 103
+    - 105
+    - 111
+    - 113
+    - 117
+    - 121
+    - 123
+    - 200
+    - 202
+    - 210
+    - 212
+    - 213
+    - 214
+    - 219
+    - 221
+    - 222
+    - 228
+    - 231
+    - 232
+    - 233
+    - 234
+  val:
+    - 223
+    - 230
+
+preprocess:
+  fs: 360
+  lead_preference:
+    - MLII
+    - "II"
+    - "V5"
+    - "V2"
+  bandpass_low_hz: 0.5
+  bandpass_high_hz: 45.0
+  bandpass_order: 3
+  samples_before_r: 93
+  samples_after_r: 94
+  rr_local_n: 10
+
+context:
+  half_window: 2
+
+svdb:
+  enabled: true
+  data_root: "C:/Users/安/Desktop/project/项目/项目/autodl-tmp/数据集/mit-bih-supraventricular-arrhythmia-database-1.0.0"
+  target_fs: 360
+  lead_preference:
+    - ECG1
+    - ECG2
+    - "II"
+    - MLII
+  fill_classes: [1, 2]
+  target_per_class: 5000
+  also_morph_aug: false
+
+augment:
+  enabled: false
+  amp_scale_min: 0.9
+  amp_scale_max: 1.1
+  warp_min: 0.8
+  warp_max: 1.2
+  max_r_shift: 5
+  max_qrs_amp_change: 0.2
+  target_per_class: 5000
+
+model:
+  architecture: cnn_lstm
+  conv_l2: 1.0e-4
+  dense_l2: 1.0e-4
+  spatial_dropout: 0.25
+  dense_dropout: 0.5
+  leaky_relu_alpha: 0.01
+  temperature: 1.0
+  num_classes: 5
+  lstm_units: 64
+  lstm_dropout: 0.25
+  use_attention: true
+  center_skip: true
+  center_attn_boost: 1.5
+  # Design B: dedicated RR branch; LSTM sees morph only
+  rr_branch: true
+  rr_branch_units: 32
+  rr_branch_dropout: 0.25
+  keep_step_rr: false
+  prior_as_weight: true
+
+train:
+  batch_size: 32
+  max_epochs: 100
+  early_stopping_patience: 15
+  initial_lr: 1.0e-3
+  min_lr: 1.0e-6
+  cosine_restart_period: 50
+  adam_beta_1: 0.9
+  adam_beta_2: 0.999
+  adam_epsilon: 1.0e-7
+  focal_gamma: 0.0
+  use_class_weight: false
