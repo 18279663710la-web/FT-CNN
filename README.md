@@ -10,19 +10,34 @@ v3.2 配置：`config/cnn_lstm_v3_2.yaml`，`context.half_window=2 → T=5`，`l
 
 双输入：`beats (5,187,1)` + `rr_seq (5,4)`，单输出 `Softmax(5)`，按中心心拍标签训练。
 
-```text
-beats(5,187,1) ──► TimeDistributed(共享形态编码器) ──► f_cnn(5,128) ──┐
-                                                                     ├─► fuse_step: concat(f_cnn,rr_seq) = step(5,132) ─► LSTM(64,return_seq) ─► AttnHidden(tanh 64) ─► AttnScore(1)+CenterPrior ─► Softmax(T) ─► AttnPool ─► temporal(64)
-rr_seq(5,4) ───────────────────────────────────────────┘               │
-                                                                       ├─► center_skip: CenterSlice(f_cnn) = center_cnn(128)
-                                                                       │
-                                                                     ┌─┴─► RR支路 center_prem: rr_prem_feats(8) ─► FC32+BN+ReLU+Dropout(0.25) ─► FC16+ReLU ─► rr_h(16)
-                                                                     │      feats = [center_rr(4), 1-ratio(1), local-prev(1), left_ratio(1), right_ratio(1)]
-                                                                     │
-                                                                     └──► fuse_rr: concat(temporal 64, center_cnn 128, rr_h 16) = 208 ─► FC128+BN+ReLU+Dropout(0.5) ─► Dense(5) ─► Softmax
+```mermaid
+flowchart TB
+  beats["beats (5,187,1)"] --> enc["TimeDistributed<br/>共享形态编码器"]
+  enc --> fcnn["f_cnn (5,128)"]
+  rr["rr_seq (5,4)"] --> fuse_step
+  fcnn --> fuse_step["fuse_step<br/>concat → step (5,132)"]
+  fuse_step --> lstm["LSTM 64<br/>return_sequences"]
+  lstm --> attn["Attn: Dense tanh64 → Dense 1<br/>+ CenterPrior → Softmax T"]
+  attn --> pool["AttnPool → temporal (64)"]
 
-共享形态编码器(每个 beat 复用，与 FT-CNN Block1-3 同结构):
-  Conv1D(32,k=5,same)+BN+ReLU+MaxPool(2) → Conv1D(64,k=3,same)+SpatialDropout(0.25)+PReLU+AvgPool(2) → Conv1D(128,k=3,same)+BN+LeakyReLU(0.01)+GAP → (128,)
+  fcnn --> skip["center_skip<br/>CenterSlice → center_cnn (128)"]
+  rr --> prem["center_prem feats (8)<br/>center_rr4 + prem/shortfall/left/right"]
+  prem --> rr_mlp["FC32+BN+ReLU+Drop0.25<br/>→ FC16+ReLU → rr_h (16)"]
+
+  pool --> fuse_rr
+  skip --> fuse_rr
+  rr_mlp --> fuse_rr["fuse_rr concat (208)"]
+  fuse_rr --> head["FC128+BN+ReLU+Drop0.5<br/>→ Dense 5 → Softmax"]
+```
+
+共享形态编码器（每拍复用，与 FT-CNN Block1–3 同结构）：
+
+```mermaid
+flowchart LR
+  in["beat (187,1)"] --> c1["Conv1D 32,k=5 + BN + ReLU + MaxPool2"]
+  c1 --> c2["Conv1D 64,k=3 + SpatialDrop0.25 + PReLU + AvgPool2"]
+  c2 --> c3["Conv1D 128,k=3 + BN + LeakyReLU0.01 + GAP"]
+  c3 --> out["(128)"]
 ```
 
 对应代码：`src/models/cnn_lstm.py::build_cnn_lstm()` + `build_morphology_encoder()` + `rr_center_prematurity_features()` + `CenterPriorAdd/AttnPool/CenterSlice`。
@@ -88,4 +103,3 @@ python -m src.eval --checkpoint artifacts/checkpoints/best.h5
 ```
 
 See `REPRO_NOTES.md` for paper gaps and metric deltas.
-
